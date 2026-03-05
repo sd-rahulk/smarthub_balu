@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Hub Pro | Dashboard</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #050507;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --accent: #00f2ff;
+            --danger: #ff4d4d;
+            --warning: #ffad33;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        /* Three.js Background */
+        #canvas-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            z-index: -1;
+            filter: blur(2px);
+        }
+
+        #ui-wrapper {
+            position: relative;
+            z-index: 10;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: left;
+            margin-bottom: 2rem;
+            border-left: 4px solid var(--accent);
+            padding-left: 1rem;
+        }
+
+        h1 { font-weight: 300; letter-spacing: 2px; margin: 0; }
+        
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 1.5rem;
+            border-radius: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .card:hover { transform: translateY(-5px); border-color: var(--accent); }
+
+        .label { font-size: 0.8rem; text-transform: uppercase; color: #aaa; }
+        .value { font-size: 2.5rem; font-weight: bold; color: var(--accent); margin: 10px 0; }
+
+        /* Status Banner */
+        #status-banner {
+            padding: 1rem;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid var(--accent);
+        }
+
+        /* Chart Area */
+        .chart-container {
+            background: var(--card-bg);
+            padding: 1.5rem;
+            border-radius: 20px;
+            height: 350px;
+        }
+
+        /* Alert Animations */
+        .alert-active {
+            animation: pulse-red 1.5s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(255, 77, 77, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 77, 77, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+
+    <div id="ui-wrapper">
+        <header>
+            <h1>SYSTEM MONITOR <small style="font-size: 12px; opacity: 0.5;">V2.0</small></h1>
+        </header>
+
+        <div id="status-banner">ENVIRONMENT STATUS: INITIALIZING...</div>
+
+        <div class="stats-grid">
+            <div class="card">
+                <div class="label">Temperature</div>
+                <div id="temp" class="value">--°C</div>
+            </div>
+            <div class="card">
+                <div class="label">Humidity</div>
+                <div id="hum" class="value">--%</div>
+            </div>
+            <div class="card">
+                <div class="label">Gas Level</div>
+                <div id="gas" class="value">--</div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <canvas id="mainChart"></canvas>
+        </div>
+    </div>
+
+<script>
+/** * 1. BACKGROUND VISUALS (Three.js)
+ */
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+const geometry = new THREE.IcosahedronGeometry(7, 2);
+const material = new THREE.MeshBasicMaterial({ 
+    color: 0x00f2ff, 
+    wireframe: true, 
+    transparent: true, 
+    opacity: 0.2 
+});
+
+const sphere = new THREE.Mesh(geometry, material);
+scene.add(sphere);
+camera.position.z = 15;
+
+function animate() {
+    requestAnimationFrame(animate);
+    sphere.rotation.y += 0.002;
+    sphere.rotation.x += 0.001;
+    renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/** * 2. CHART CONFIGURATION (Chart.js)
+ */
+const ctx = document.getElementById('mainChart').getContext('2d');
+const mainChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+        labels: [],
+        datasets: [
+            { label: 'Temp', borderColor: '#ff4d4d', data: [], tension: 0.4, pointRadius: 0 },
+            { label: 'Hum', borderColor: '#00f2ff', data: [], tension: 0.4, pointRadius: 0 },
+            { label: 'Gas', borderColor: '#ffad33', data: [], tension: 0.4, pointRadius: 0 }
+        ]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#888' } },
+            x: { grid: { display: false }, ticks: { display: false } }
+        },
+        plugins: { legend: { labels: { color: '#fff' } } }
+    }
+});
+
+/** * 3. DATA LOGIC
+ */
+async function updateData() {
+    try {
+        // Replace this URL with your actual API endpoint
+        // const response = await fetch("/data");
+        // const data = await response.json();
+
+        // MOCK DATA FOR DEMO
+        const data = {
+            temp: (20 + Math.random() * 10).toFixed(1),
+            hum: (40 + Math.random() * 20).toFixed(1),
+            gas: Math.floor(Math.random() * 1000)
+        };
+
+        // Update UI
+        document.getElementById("temp").innerText = `${data.temp}°C`;
+        document.getElementById("hum").innerText = `${data.hum}%`;
+        document.getElementById("gas").innerText = data.gas;
+
+        // Update Status & Colors
+        const banner = document.getElementById("status-banner");
+        if (data.gas > 700) {
+            banner.innerText = "CRITICAL: GAS LEAK DETECTED";
+            banner.style.color = "var(--danger)";
+            document.querySelector('.stats-grid').classList.add('alert-active');
+        } else {
+            banner.innerText = "SYSTEMS NOMINAL";
+            banner.style.color = "var(--accent)";
+            document.querySelector('.stats-grid').classList.remove('alert-active');
+        }
+
+        // Update Chart (Sliding Window of 20 points)
+        const now = new Date().toLocaleTimeString();
+        mainChart.data.labels.push(now);
+        mainChart.data.datasets[0].data.push(data.temp);
+        mainChart.data.datasets[1].data.push(data.hum);
+        mainChart.data.datasets[2].data.push(data.gas);
+
+        if (mainChart.data.labels.length > 20) {
+            mainChart.data.labels.shift();
+            mainChart.data.datasets.forEach(ds => ds.data.shift());
+        }
+        mainChart.update('none'); // Update without heavy animation
+
+    } catch (err) {
+        console.error("Data fetch failed", err);
+    }
+}
+
+// Update every 2 seconds
+setInterval(updateData, 2000);
+</script>
+</body>
+</html>
