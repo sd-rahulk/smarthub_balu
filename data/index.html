@@ -201,24 +201,16 @@ const mainChart = new Chart(ctx, {
  */
 async function updateData() {
     try {
-        // Replace this URL with your actual API endpoint
-        // const response = await fetch("/data");
-        // const data = await response.json();
 
-        // MOCK DATA FOR DEMO
-        const data = {
-            temp: (20 + Math.random() * 10).toFixed(1),
-            hum: (40 + Math.random() * 20).toFixed(1),
-            gas: Math.floor(Math.random() * 1000)
-        };
+        const response = await fetch("/data");
+        const data = await response.json();
 
-        // Update UI
         document.getElementById("temp").innerText = `${data.temp}°C`;
         document.getElementById("hum").innerText = `${data.hum}%`;
         document.getElementById("gas").innerText = data.gas;
 
-        // Update Status & Colors
         const banner = document.getElementById("status-banner");
+
         if (data.gas > 700) {
             banner.innerText = "CRITICAL: GAS LEAK DETECTED";
             banner.style.color = "var(--danger)";
@@ -229,8 +221,8 @@ async function updateData() {
             document.querySelector('.stats-grid').classList.remove('alert-active');
         }
 
-        // Update Chart (Sliding Window of 20 points)
         const now = new Date().toLocaleTimeString();
+
         mainChart.data.labels.push(now);
         mainChart.data.datasets[0].data.push(data.temp);
         mainChart.data.datasets[1].data.push(data.hum);
@@ -240,10 +232,11 @@ async function updateData() {
             mainChart.data.labels.shift();
             mainChart.data.datasets.forEach(ds => ds.data.shift());
         }
-        mainChart.update('none'); // Update without heavy animation
+
+        mainChart.update('none');
 
     } catch (err) {
-        console.error("Data fetch failed", err);
+        console.error(err);
     }
 }
 
@@ -251,4 +244,5 @@ async function updateData() {
 setInterval(updateData, 2000);
 </script>
 </body>
+
 </html>
